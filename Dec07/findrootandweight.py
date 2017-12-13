@@ -1,4 +1,6 @@
+# Holds nodes in a tree-shaped directed acyclic graph
 class dagtree:
+    # Build the DAG, based upon the data in the adjacency dictionary
     def __init__(self, adjd, key):
         self.nodename = key
         # Weight of each node by itself is given by first element of list
@@ -11,55 +13,55 @@ class dagtree:
             # each dictionary key
             self.childnodes.append(dagtree(adjd, adjd[key][ii]))
             self.sumweight += self.childnodes[-1].sumweight
+    # Find the incorrectly weighted child node, and return its correct weight
     def getcorrectweight(self):
-    	# Desired return value
-        correctweight = None
-        # List of child nodes (will be reassigned as we descend through each
-        # tree level)
-        children = self.childnodes
-        # Weight of previous parent node, one level prior.  When we finally
-        # get to the bottom (which equates to finding a perfectly balanced
-        # list of nodes) this is the number which will require correcting
-        parentweight = self.ownweight
-        done = False
-        while not done:
-        	# This is effectively a histogram, with the sumweights of
-        	# the children assigned as keys, and the number of children
-        	# corresponding to each weight assigned as values.  Most of the
-        	# time, for n children, there will be 2 keys, and one of the
-        	# keys will have a value of 1, while the other key has a value
-        	# of (n-1).  (On the final descent iteration, there will be only
-        	# a single key, with a value of n.)
-            weightdist = {}
-            for c in children:
-                if c.sumweight in weightdist:
-                    weightdist[c.sumweight] += 1
-                else:
-                    weightdist[c.sumweight] = 1
-            # We're done--calculate the final correct weight by taking the
-            # ownweight of the parent node one level above the current
-            # position within the tree, and correcting for the difference
-            # in sumweights observed at that level.
-            if len(weightdist) == 1:
-                done = True
-                correctweight = parentweight - (uniqueweight - commonweight)
-            # Not done yet, so reassign parents, children, and correction
-            # factors, then return to the top of the loop and descend one
-            # more level in the tree.
+        # If the children of this node in the dagtree are properly weight
+        # balanced, then this dictionary will end up having a single key, and
+        # the value will be a list of all n children of the current node.
+        # OTOH if the children are not weight balanced, then the dictionary
+        # will end up having two keys.  One key will correspond to the weight
+        # of the (n-1) properly balanced children (and the value associated
+        # with the key will be a list of length (n-1), consisting of all the
+        # correctly balanced children), while the other key will give the
+        # weight of the node with an incorrectly weighted descendent (and
+        # its value will be a list of length 1, containing the node with
+        # a badly weighted descendent).
+        weightdist = {}
+        for c in self.childnodes:
+            if c.sumweight in weightdist:
+                weightdist[c.sumweight].append(c)
             else:
-                for k in weightdist:
-                	if weightdist[k] == 1:
-                		uniqueweight = k
-                	if weightdist[k] > 1:
-                		commonweight = k
-                for c in children:
-                    if c.sumweight == uniqueweight:
-                        newparent = c
-                        break
-                children = newparent.childnodes
-                parentweight = newparent.ownweight
+                weightdist[c.sumweight] = [c]
+        # If the weights of the children are all equal value, then it means
+        # that we've reached the bottom of the recursion tree, and the parent
+        # node on the next level above this is the one with the incorrect
+        # weighting, so we return a special None value as an indicator
+        if len(weightdist) == 1:
+            return None
+        else:
+            for w in weightdist:
+                # This weight doesn't match the others, and indicates the
+                # node that has a descendent node with an incorrect weight 
+                if len(weightdist[w]) == 1:
+                    uniqueweight = w
+                # The correct or expected weight for all child nodes at this
+                # level of the tree
+                if len(weightdist[w]) > 1:
+                    commonweight = w
+            # Call the method recursively, upon the child node which has
+            # the unique (i.e., incorrect) weight
+            retval = weightdist[uniqueweight][0].getcorrectweight()
+            # Catch the indicator which tells us the level below the child
+            # was correctly balanced, and that the child node itself was
+            # therefore the incorrectly weighted node
+            if retval is None:
+                correction = uniqueweight - commonweight
+                return weightdist[uniqueweight][0].ownweight - correction
+            # Once we've found the correct weight, pass it up the call stack
+            # until we get back to the top
+            else:
+                return retval
 
-        return correctweight
 
 filename = 'input.txt'
 
@@ -95,7 +97,10 @@ with open(filename) as f:
 
 rootnodes = allnodes - nonroot
 root = rootnodes.pop()
+# Print solution to part a
 print(root)
 
+# Create a DAG tree graph from data in the adjacency list
 dag = dagtree(adjdct, root)
+# Print the solution to part b
 print(dag.getcorrectweight())
